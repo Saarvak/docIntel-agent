@@ -1,7 +1,8 @@
 """Send a chat message to the locally running DocIntel agent and print its reply.
 
 Terminal 1:  python agent.py
-Terminal 2:  python test_client.py "sample invoice-foobar-labs"
+Terminal 2:  python test_client.py "invoice sample invoice-foobar-labs"
+             python test_client.py "sample invoice-sliced"
              python test_client.py "https://example.com/invoice.pdf"
 """
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ def main() -> int:
     parser.add_argument("--type", choices=["invoice", "purchase-order", "contract", "general"], help="skip auto-classification")
     parser.add_argument("--json", action="store_true", help="print the raw JSON result")
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     try:
         result = analyze_document(args.path.read_bytes(), args.path.name, args.type, get_settings())

@@ -7,20 +7,60 @@ the values were found (rules here, or gap-filling by an LLM in `llm.py`).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from typing import Any
 
-from .text import (
-    detect_currency,
-    extract_tables,
-    non_empty_lines,
-    parse_amount,
-    parse_date,
-    parse_percent,
-    to_plain_text,
-)
+try:
+    from .text import (
+        detect_currency,
+        extract_tables,
+        non_empty_lines,
+        parse_amount,
+        parse_date,
+        parse_percent,
+        to_plain_text,
+    )
+except ImportError:
+    from text import (
+        detect_currency,
+        extract_tables,
+        non_empty_lines,
+        parse_amount,
+        parse_date,
+        parse_percent,
+        to_plain_text,
+    )
 
 DOC_TYPES = ("invoice", "purchase-order", "contract", "general")
+TYPE_ALIASES = {
+    "invoice": "invoice",
+    "tax invoice": "invoice",
+    "tax-invoice": "invoice",
+    "po": "purchase-order",
+    "purchase order": "purchase-order",
+    "purchase-order": "purchase-order",
+    "contract": "contract",
+    "agreement": "contract",
+    "msa": "contract",
+    "general": "general",
+    "auto": "auto",
+}
+
+
+def parse_requested_type(text: str, ignore: list[str] | tuple[str, ...] = ()) -> str | None:
+    """Return a DOC_TYPES value, 'auto', or None if the user did not name a type.
+
+    Sample filenames are stripped first so `sample invoice-sliced` does not count as invoice.
+    """
+    cleaned = text or ""
+    for token in ignore:
+        cleaned = re.sub(re.escape(token), " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"https?://\S+", " ", cleaned)
+    cleaned = re.sub(r"\b(sample|samples|json)\b", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip().lower()
+    for alias in sorted(TYPE_ALIASES, key=len, reverse=True):
+        if re.search(rf"(?<![\w-]){re.escape(alias)}(?![\w-])", cleaned):
+            return TYPE_ALIASES[alias]
+    return None
 
 GSTIN_RE = re.compile(r"\b(\d{2})([A-Z]{5}\d{4}[A-Z])([1-9A-Z])Z([0-9A-Z])\b")
 PAN_RE = re.compile(r"(?<![A-Z0-9])[A-Z]{5}\d{4}[A-Z](?![A-Z0-9])")
@@ -28,19 +68,25 @@ AMOUNT_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9.])[₹$€£]?\s?\d[\d,]*(?:\.\d+)
 PLACEHOLDER_RE = re.compile(r"\[[^\]]{2,}\]|lorem ipsum", re.IGNORECASE)
 
 
-@dataclass
 class Field:
-    value: Any
-    confidence: float
-    source: str = "rules"
+    def __init__(self, value: Any, confidence: float, source: str = "rules") -> None:
+        self.value = value
+        self.confidence = confidence
+        self.source = source
 
 
-@dataclass
 class Extraction:
-    document_type: str
-    fields: dict[str, Field] = field(default_factory=dict)
-    line_items: list[dict[str, Any]] = field(default_factory=list)
-    extras: dict[str, Any] = field(default_factory=dict)
+    def __init__(
+        self,
+        document_type: str,
+        fields: dict[str, Field] | None = None,
+        line_items: list[dict[str, Any]] | None = None,
+        extras: dict[str, Any] | None = None,
+    ) -> None:
+        self.document_type = document_type
+        self.fields = fields if fields is not None else {}
+        self.line_items = line_items if line_items is not None else []
+        self.extras = extras if extras is not None else {}
 
     def set(self, key: str, value: Any, confidence: float, source: str = "rules") -> None:
         if value is None or value == "" or value == []:

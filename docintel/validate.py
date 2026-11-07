@@ -5,8 +5,12 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from .extract import PLACEHOLDER_RE, Extraction
-from .text import approx_equal
+try:
+    from .extract import PLACEHOLDER_RE, Extraction
+    from .text import approx_equal
+except ImportError:
+    from extract import PLACEHOLDER_RE, Extraction
+    from text import approx_equal
 
 # Valid GST state codes (01-38 plus 97 and 99).
 GST_STATE_CODES = {f"{n:02d}" for n in range(1, 39)} | {"97", "99"}

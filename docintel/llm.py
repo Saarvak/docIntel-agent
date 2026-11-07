@@ -6,8 +6,12 @@ import json
 import logging
 from typing import Any
 
-from .config import Settings
-from .extract import Extraction
+try:
+    from .config import Settings
+    from .extract import Extraction
+except ImportError:
+    from config import Settings
+    from extract import Extraction
 
 logger = logging.getLogger(__name__)
 

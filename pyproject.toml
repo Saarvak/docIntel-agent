@@ -1,0 +1,10 @@
+[project]
+name = "docintel-agent"
+version = "0.1.0"
+description = "Reads business documents and checks them against business rules"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "uagents>=0.25.5",
+    "requests>=2.31",
+]

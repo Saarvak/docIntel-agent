@@ -1,0 +1,5 @@
+[agent]
+  address = "agent1q0rnzvuslxf2hk9gul4alja6x3v8vz238aap4syehpjcl76cry8xqrn9kcc"
+  include = ""
+  readme_path = "README.md"
+  description = "Reads invoices, purchase orders and contracts, extracts fields, and checks them against business rules."

@@ -25,9 +25,10 @@ def _value(v: Any) -> str:
 def format_report(result: dict[str, Any]) -> str:
     v = result["validation"]
     cls = result["classification"]
+    type_note = "you selected" if cls.get("overridden") else f"{cls['confidence']:.0%} confidence"
     out = [
         f"## {result['filename']}",
-        f"**Type:** {result['document_type']} ({cls['confidence']:.0%} confidence)  |  **Result:** {STATUS_LABEL[v['status']]}",
+        f"**Type:** {result['document_type']} ({type_note})  |  **Result:** {STATUS_LABEL[v['status']]}",
         "",
         "### Extracted fields",
     ]

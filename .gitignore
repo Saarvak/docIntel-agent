@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Pipeline profiles (GCP / local resource reports)
+profiles/

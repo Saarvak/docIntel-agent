@@ -1,26 +1,35 @@
-"""Pipeline tests on the bundled sample documents (MinerU not required: saved Markdown is used).
+"""Pipeline tests on the bundled sample documents (rules only: saved Markdown, no MinerU API).
 
     python -m unittest discover -s tests -v
 """
 
 from __future__ import annotations
 
+import hashlib
 import unittest
-from dataclasses import replace
 from pathlib import Path
 
-from docintel import analyze_document
 from docintel.config import get_settings
+from docintel.extract import parse_requested_type
 from docintel.pipeline import analyze_markdown
 from docintel.text import parse_amount, parse_date
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
-# Never call an LLM in tests, and never reach a real MinerU.
-SETTINGS = replace(get_settings(), gemini_api_keys=(), mineru_api_url="http://127.0.0.1:9", samples_dir=SAMPLES)
+# Never call an LLM in tests, and never reach the real MinerU cloud API.
+SETTINGS = get_settings().replace(gemini_api_keys=(), mineru_api_url="http://127.0.0.1:9", mineru_api_token="", samples_dir=SAMPLES)
 
 
 def run(name: str, registry=None) -> dict:
-    return analyze_document((SAMPLES / f"{name}.pdf").read_bytes(), f"{name}.pdf", settings=SETTINGS, registry=registry)
+    pdf = SAMPLES / f"{name}.pdf"
+    markdown = (SAMPLES / f"{name}.md").read_text(encoding="utf-8")
+    return analyze_markdown(
+        markdown,
+        f"{name}.pdf",
+        settings=SETTINGS,
+        registry=registry,
+        parse_source="markdown",
+        document_id="doc_" + hashlib.sha256(pdf.read_bytes()).hexdigest()[:10],
+    )
 
 
 def value(result: dict, key: str):
@@ -121,6 +130,34 @@ class Classification(unittest.TestCase):
         self.assertEqual(r["document_type"], "general")
         with self.assertRaises(ValueError):
             analyze_markdown("x", document_type="receipt", settings=SETTINGS)
+
+    def test_requested_type_is_not_inferred_from_sample_name(self):
+        names = ["invoice-sliced", "po-tobii", "contract-msa-nexus"]
+        self.assertIsNone(parse_requested_type("sample invoice-sliced", names))
+        self.assertEqual(parse_requested_type("invoice sample invoice-sliced", names), "invoice")
+        self.assertEqual(parse_requested_type("po sample po-tobii", names), "purchase-order")
+        self.assertEqual(parse_requested_type("contract", names), "contract")
+        self.assertEqual(parse_requested_type("auto json", names), "auto")
+
+    def test_selected_type_uses_that_extractor(self):
+        r = analyze_markdown(
+            "Just some meeting notes.\n\nNothing structured here.",
+            document_type="invoice",
+            settings=SETTINGS,
+        )
+        self.assertEqual(r["document_type"], "invoice")
+        self.assertTrue(r["classification"]["overridden"])
+        self.assertEqual(r["classification"]["type"], "general")
+
+
+class ProcessingTimings(unittest.TestCase):
+    def test_stages_are_recorded(self):
+        r = run("invoice-sliced")
+        stages = r["processing"]["stages_ms"]
+        self.assertIn("classify", stages)
+        self.assertIn("extract", stages)
+        self.assertIn("validate", stages)
+        self.assertGreaterEqual(r["processing"]["duration_ms"], 0)
 
 
 if __name__ == "__main__":
